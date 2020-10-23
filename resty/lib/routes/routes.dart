@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart' as dio;
 import 'dart:convert' as codec;
 import 'package:jaguar_resty/expect/expect.dart';
@@ -6,6 +7,8 @@ import 'package:jaguar_resty/response/response.dart';
 import 'package:http_parser/http_parser.dart';
 import 'package:client_cookie/client_cookie.dart';
 import 'package:auth_header/auth_header.dart';
+
+final encoder = JsonEncoder.withIndent('  ');
 
 typedef FutureOr<void> Before(RouteBase route);
 
@@ -492,7 +495,7 @@ abstract class _RouteWithBodyMixin implements RouteWithBody {
   }
 
   RouteWithBody json(body, {bool setHeaders: true}) {
-    _body = codec.json.encode(body);
+    _body = encoder.convert(body);
     if (setHeaders) {
       mimeType('application/json');
       header('Accept', 'application/json');
