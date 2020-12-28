@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:dio/dio.dart' as dio;
 import 'dart:convert' as codec;
+
+import 'package:auth_header/auth_header.dart';
+import 'package:client_cookie/client_cookie.dart';
+import 'package:dio/dio.dart' as dio;
+import 'package:http_parser/http_parser.dart';
 import 'package:jaguar_resty/expect/expect.dart';
 import 'package:jaguar_resty/response/response.dart';
-import 'package:http_parser/http_parser.dart';
-import 'package:client_cookie/client_cookie.dart';
-import 'package:auth_header/auth_header.dart';
 
 final encoder = JsonEncoder.withIndent('  ');
 
@@ -185,9 +186,8 @@ class RouteBase {
   }
 
   RouteBase hookHeader(String key, ValueCallback<String> getter) {
-    if (getter != null) getAfter.add((r) => 
-      r.headers[key].forEach((header) => getter(header))
-    );
+    if (getter != null)
+      getAfter.add((r) => r.headers[key].forEach((header) => getter(header)));
     return this;
   }
 
@@ -695,10 +695,18 @@ class Post extends RouteBase
         _body is List<int> ||
         _body is Map<String, String> ||
         _body == null) {
-      return (getClient ?? globalClient).post(getUrl,
-          data: _body,
-          options: dio.Options(
-              headers: getHeaders, responseType: dio.ResponseType.plain));
+      return (getClient ?? globalClient)
+          .post(getUrl,
+              data: _body,
+              options: dio.Options(
+                  headers: getHeaders, responseType: dio.ResponseType.plain))
+          .catchError((error) {
+        if (error is dio.DioError && error.error is Exception) {
+          throw error.error;
+        } else {
+          throw error;
+        }
+      });
     } else if (_body is Map<String, Multipart>) {
       final body = _body as Map<String, Multipart>;
       dio.FormData r = dio.FormData();
@@ -720,12 +728,20 @@ class Post extends RouteBase
           r.files.add(MapEntry(field, multipartFile));
         }
       }
-      return (getClient ?? globalClient).post(getUrl,
-          data: r,
-          options: dio.Options(
-            headers: getHeaders,
-            responseType: dio.ResponseType.plain,
-          ));
+      return (getClient ?? globalClient)
+          .post(getUrl,
+              data: r,
+              options: dio.Options(
+                headers: getHeaders,
+                responseType: dio.ResponseType.plain,
+              ))
+          .catchError((error) {
+        if (error is dio.DioError && error.error is Exception) {
+          throw error.error;
+        } else {
+          throw error;
+        }
+      });
     } else {
       throw Exception('Invalid body!');
     }
@@ -752,11 +768,7 @@ class Post extends RouteBase
     if (throwOnErr == true) resp = resp.onFailure((r) => throw r);
     if (then != null) resp = resp.run(then);
 
-    return AsyncStringResponse(
-      resp.catchError((error) {
-        throw error.error;
-      }, test: (error) => error is dio.DioError && error.error is Exception),
-    );
+    return resp;
   }
 
   AsyncStringResponse expect(List<Checker<Response>> conditions) =>
